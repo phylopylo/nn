@@ -1,19 +1,18 @@
 from __future__ import annotations
-from typing import List, TypedDict
+from typing import List
 import numpy as np
 from numpy import e
 
-def sigmoid(x: np.array | float):
+def sigmoid(x: np.ndarray | float):
     return 1 / (1 + np.exp(-x))
 
-def sigmoidDerivative(x: np.array | float):
-    tmp = [_activation(xT) for xT in x]
-    return [t * (1 - t) for t in tmp]
+def sigmoidDerivative(x: np.ndarray | float):
+    return x * (1 - x)
 
-def ReLU(x: np.array | float):
+def ReLU(x: np.ndarray | float):
     return np.maximum(0, x)
 
-def ReLUDerivative(x: np.array | float):
+def ReLUDerivative(x: np.ndarray | float):
     return x > 0
 
 _activation = sigmoid
@@ -29,10 +28,10 @@ def _initWeights(layers):
     
     return w, b
 
-def _printWeights(w: List[np.array]):
+def _printWeights(w: List[np.ndarray]):
     print("current weights dims: ", [wL.shape for wL in w])
 
-def _forwardPass(x: np.array, w: List[np.array], b: List[np.array]):
+def _forwardPass(x: np.ndarray, w: List[np.ndarray], b: List[np.ndarray]):
     """
     inference mode
     wL is weights for a layer.
@@ -40,47 +39,47 @@ def _forwardPass(x: np.array, w: List[np.array], b: List[np.array]):
     """
     assert x.shape[0] == w[0].shape[0]
     assert len(w) == len(b)
-    assert [wL.shape == bL.shape for _, (wL, bL) in enumerate(zip(w, b))]
 
-    outputs = [np.zeros(w[i].shape) for i in range(len(w))]
+    outputs = []
 
-    for i, (wL, bL) in enumerate(zip(w, b)):
+    for wL, bL in zip(w, b):
         x = _activation(x @ wL + bL)
-        outputs[i] = x
+        outputs.append(x)
 
     return outputs
 
-def _lossFunction(y_pred: np.array, y_true: np.array):
+def _lossFunction(y_pred: np.ndarray, y_true: np.ndarray):
     """ MSE """
     return ((y_pred - y_true)**2).mean()
 
-def _gradient(w: np.array, b: np.array, x: np.array, y: np.array):
+def _gradient(w: List[np.ndarray], b: List[np.ndarray], x: np.ndarray, y: np.ndarray):
     """ Calculate Gradients """
 
     outputs = _forwardPass(x, w, b)
-    w_delta = []
+    w_delta = [np.zeros_like(wL) for wL in w]
+    b_delta = [np.zeros_like(bL) for bL in b]
 
-    for layer in reversed(range(len(w))):
-        if layer == len(w) - 1:
-            error = _lossFunction(outputs[layer], y)
-            gradient = sigmoidDerivative(outputs[layer])
-            w_delta.append(error * gradient[0])
-        else:
-            for j in range(len(w[layer])):
-                error = 0
-                for neuron in range(len(w[layer + 1])):
-                    error += w[layer + 1][neuron] * w_delta[layer]
-                gradient = sum(sigmoidDerivative(outputs[layer]))
-                w_delta.append(error * gradient)
+    error = outputs[-1] - y
+    gradient = _activationDerivative(outputs[-1])
+    delta = error * gradient
 
-    print(w_delta)
-    w_delta = list(reversed(w_delta))
+    w_delta[-1] = np.outer(outputs[-2], delta)
+    b_delta[-1] = delta
+
+    for i in range(len(w) - 2, -1, -1):
+        error = delta @ w[i + 1].T
+        gradient = _activationDerivative(outputs[i])
+        delta = error * gradient
+
+        w_delta[i] = np.outer(x if i == 0 else outputs[i - 1], delta)
+        b_delta[i] = delta
 
     lr = 0.01
+    for i in range(len(w)):
+        w[i] -= lr * w_delta[i]
+        b[i] -= lr * b_delta[i]
 
-    w = [wL - lr * w_deltaL for wL, w_deltaL in enumerate(zip(w, w_delta))]
-
-    return w
+    return w, b
 
 def testInference(debug=False):
     layers = [2, 8, 1]
@@ -104,24 +103,21 @@ if "__main__" == __name__:
 
     w, b = _initWeights(layers)
 
-    x = np.random.choice([0, 1], size=(1000, 2))
+    x = np.random.choice([0, 1], size=(100000, 2))
     y = np.bitwise_xor.reduce(x, axis=1)
 
-    batches = 100
+    batches = 10000
     epochs = 10
 
-    for i in range(epochs * batches):
-        w = _gradient(w, b, x[i], y[i])
-        print("epoch=", epoch, "loss=", _lossFunction(xB, yB))
+    loss = 0
 
-    #for epoch in range(epochs):
-    #    xB = x[epoch:epoch * batches + batches]
-    #    yB = y[epoch:epoch * batches + batches]
-    #    w = _gradient(w, b, xB, yB)
-    #    print("epoch=", epoch, "loss=", _lossFunction(xB, yB))
+    for e in range(epochs * batches):
+        if e % batches == 0:
+            print("epoch=", e, "loss=", loss / batches)
+            loss = 0
+        xB = x[e]
+        yB = y[e]
+        w, b = _gradient(w, b, xB, yB)
 
-
-
-
-
-
+        outputs = _forwardPass(xB, w, b)
+        loss += _lossFunction(outputs[-1], yB)
