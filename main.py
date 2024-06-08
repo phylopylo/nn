@@ -38,7 +38,6 @@ def _forwardPass(x: np.ndarray, w: List[np.ndarray], b: List[np.ndarray]):
     bL is biases for a layer.
     """
     assert x.shape[0] == w[0].shape[0]
-    assert len(w) == len(b)
 
     outputs = []
 
@@ -74,12 +73,16 @@ def _gradient(w: List[np.ndarray], b: List[np.ndarray], x: np.ndarray, y: np.nda
         w_delta[i] = np.outer(x if i == 0 else outputs[i - 1], delta)
         b_delta[i] = delta
 
-    lr = 0.01
+    return w_delta, b_delta
+
+def updateWeights(w, b, w_delta, b_delta, lr=0.01):
+    # for each layer, update the weights and biases with the gradients
     for i in range(len(w)):
         w[i] -= lr * w_delta[i]
         b[i] -= lr * b_delta[i]
 
     return w, b
+
 
 def testInference(debug=False):
     layers = [2, 8, 1]
@@ -103,21 +106,46 @@ if "__main__" == __name__:
 
     w, b = _initWeights(layers)
 
-    x = np.random.choice([0, 1], size=(100000, 2))
+    batch_size = 1000
+    epochs = 100
+    lr = 0.001
+
+    x = np.random.choice([0, 1], size=(batch_size * epochs, 2))
     y = np.bitwise_xor.reduce(x, axis=1)
 
-    batches = 10000
-    epochs = 10
+    for epoch in range(epochs):
+        loss = 0
+        accuracy = 0
+        w_delta_cum = []
+        b_delta_cum = []
+        for batch in range(batch_size):
+            xB = x[epoch + batch]
+            yB = y[epoch + batch]
+            w_delta, b_delta = _gradient(w, b, xB, yB)
 
-    loss = 0
+            if w_delta_cum == []:
+                w_delta_cum = w_delta
+                b_delta_cum = b_delta
+            else:
+                for i in range(len(w_delta_cum)):
+                    w_delta_cum[i] += w_delta[i]
+                    b_delta_cum[i] += b_delta[i]
 
-    for e in range(epochs * batches):
-        if e % batches == 0:
-            print("epoch=", e, "loss=", loss / batches)
-            loss = 0
-        xB = x[e]
-        yB = y[e]
-        w, b = _gradient(w, b, xB, yB)
+            outputs = _forwardPass(xB, w, b)
+            loss += _lossFunction(outputs[-1], yB)
+            accuracy += ((outputs[-1][0] > 0.499) == yB)
 
-        outputs = _forwardPass(xB, w, b)
-        loss += _lossFunction(outputs[-1], yB)
+        w, b = updateWeights(w, b, w_delta_cum, b_delta_cum, lr)
+        print("epoch=", epoch, "loss=", loss / batch_size, "accuracy=", accuracy / batch_size)
+
+    """
+    TEST MODEL
+    """
+
+    x = np.random.choice([0, 1], size=(1000, 2))
+    y = np.bitwise_xor.reduce(x, axis=1)
+    acc = 0
+    for i in range(1000):
+        acc += (_forwardPass(x[i], w, b)[-1][0] > 0.499) == y[i]
+
+    print(acc / 1000)
