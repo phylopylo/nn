@@ -63,15 +63,19 @@ def _gradient(w: List[np.ndarray], b: List[np.ndarray], x: np.ndarray, y: np.nda
     gradient = _activationDerivative(outputs[-1])
     delta = error * gradient
 
+    print(delta.shape)
+    print(outputs[-2].shape)
+
     w_delta[-1] = np.outer(outputs[-2], delta)
     b_delta[-1] = delta
 
-    error = delta @ w[-1].T
-    gradient = _activationDerivative(outputs[-2])
-    delta = error * gradient
+    for i in range(len(w) - 2, -1, -1):
+        error = delta @ w[i + 1].T
+        gradient = _activationDerivative(outputs[i])
+        delta = error * gradient
 
-    w_delta[-2] = np.outer(x, delta)
-    b_delta[-2] = delta
+        w_delta[i] = np.outer(x if i == 0 else outputs[i - 1], delta)
+        b_delta[i] = delta
 
     lr = 0.01
     for i in range(len(w)):
@@ -109,14 +113,17 @@ if "__main__" == __name__:
     epochs = 10
 
     loss = 0
+    accuracy = 0
 
     for e in range(epochs * batches):
-        if e > 0 and e % batches == 0:
-            print("epoch=", e, "loss=", loss / batches)
+        if e % batches == 0:
+            print("epoch=", e, "loss=", loss / batches, "accuracy=", accuracy / batches)
             loss = 0
+            accuracy = 0
         xB = x[e]
         yB = y[e]
         w, b = _gradient(w, b, xB, yB)
 
         outputs = _forwardPass(xB, w, b)
         loss += _lossFunction(outputs[-1], yB)
+        accuracy += abs(outputs[-1] - yB)
