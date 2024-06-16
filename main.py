@@ -19,13 +19,17 @@ def testInference(debug=False):
 
     loss = _lossFunction(output[-1], y)
 
-def _initWeights(layers):
+def _initWeights(layers, random=True):
     """ Initialize weights and biases on a uniform distribution. """
     w, b = [], []
-
-    for idx in range(len(layers) - 1):
-        w.append(np.random.uniform(size=(layers[idx], layers[idx + 1])))
-        b.append(np.random.uniform(size=(layers[idx + 1])))
+    if random:
+        for idx in range(len(layers) - 1):
+            w.append(np.random.uniform(size=(layers[idx], layers[idx + 1])))
+            b.append(np.random.uniform(size=(layers[idx + 1])))
+    else:
+        for idx in range(len(layers) - 1):
+            w.append(np.zeros((layers[idx], layers[idx + 1])))
+            b.append(np.zeros((layers[idx + 1])))
     
     return w, b
 
@@ -107,13 +111,14 @@ def _updateWeights(w: List[np.ndarray], b: List[np.ndarray], w_delta: List[np.nd
 
 if "__main__" == __name__:
     testInference()
+    np.random.seed(1337)
     layers = [2, 8, 1]
 
     w, b = _initWeights(layers)
 
-    batch_size = 10000
+    batch_size = 1000
     epochs = 100
-    lr = 0.0001
+    lr = 0.001
 
     x = np.random.choice([0, 1], size=(batch_size * epochs, 2))
     y = np.bitwise_xor.reduce(x, axis=1)
@@ -149,21 +154,21 @@ if "__main__" == __name__:
         outputs = _forwardPass(xB, w, b)
         loss += _lossFunction(outputs[-1], yB)
         accuracy += np.sum((outputs[-1] > 0.5).flatten() == yB)
-        
-        print(
-            "epoch =",
-            epoch,
-            "loss =",
-            loss,
-            "accuracy =",
-            accuracy / batch_size,
-        )
+        if epoch % 10 == 0:
+            print(
+                "epoch =",
+                epoch,
+                "loss =",
+                loss,
+                "accuracy =",
+                accuracy / batch_size,
+            )
 
 
     """
     TEST MODEL
     """
-    test_size = 1000 * 1000
+    test_size = 1000
 
     x = np.random.choice([0, 1], size=(test_size, 2))
     y = np.bitwise_xor.reduce(x, axis=1)
