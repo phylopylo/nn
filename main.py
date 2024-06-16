@@ -77,30 +77,34 @@ def _gradient(w: List[np.ndarray], b: List[np.ndarray], x: np.ndarray, y: np.nda
     def matrixize(vec: np.ndarray):
         return vec.reshape(max(vec.shape), 1)
 
+    batch_size = max(x.shape)
+
     outputs = _forwardPass(x, w, b)
     w_delta = [np.zeros_like(wL) for wL in w]
     b_delta = [np.zeros_like(bL) for bL in b]
 
     y = matrixize(y)
 
-    error = outputs[-1] - y
-    gradient = (_activationDerivative(outputs[-1]))
+    current_layer = 1
+
+    error = outputs[current_layer] - y
+    gradient = (_activationDerivative(outputs[current_layer]))
     delta = error * gradient
 
-    w_delta[-1] = delta * outputs[-2]
-    b_delta[-1] = delta
+    w_delta[current_layer] = delta * outputs[current_layer - 1]
+    b_delta[current_layer] = delta
 
-    error = delta @ w[-1].T
-    gradient = _activationDerivative(outputs[-2])
+    current_layer = 0
+
+    error = delta @ w[current_layer + 1].T
+    gradient = _activationDerivative(outputs[current_layer])
     delta = error * gradient
 
-    delta = delta.reshape(max(outputs[-1].shape), 8, 1)
-    x = x.reshape(max(outputs[-1].shape), 1, 2)
+    delta = delta.reshape(batch_size, w[current_layer].shape[1], 1)
+    x = x.reshape(batch_size, 1, w[current_layer].shape[0])
 
-    w_delta[-2] = delta * x
-    w_delta[-2] = w_delta[-2].reshape(max(outputs[-1].shape), 2, 8)
-
-    b_delta[-2] = delta
+    w_delta[current_layer] = (delta * x).reshape(batch_size, *w[current_layer].shape)
+    b_delta[current_layer] = delta
 
     return w_delta, b_delta
 
