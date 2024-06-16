@@ -16,7 +16,6 @@ def testInference(debug=False):
     y = np.random.uniform()
 
     output = _forwardPass(x, w, b)
-
     loss = _lossFunction(output[-1], y)
 
 def _initWeights(layers, random=True):
@@ -72,13 +71,21 @@ def _lossFunction(y_pred: np.ndarray, y_true: np.ndarray):
 def _gradient(w: List[np.ndarray], b: List[np.ndarray], x: np.ndarray, y: np.ndarray):
     """ Calculate Gradients """
 
+    def vectorize(mat: np.ndarray):
+        return mat.reshape(max(mat.shape))
+
+    def matrixize(vec: np.ndarray):
+        return vec.reshape(max(vec.shape), 1)
+
     outputs = _forwardPass(x, w, b)
     w_delta = [np.zeros_like(wL) for wL in w]
     b_delta = [np.zeros_like(bL) for bL in b]
 
-    error = outputs[-1].reshape(max(outputs[-1].shape)) - y
-    gradient = _activationDerivative(outputs[-1]).reshape(max(outputs[-1].shape))
-    delta = (error * gradient).reshape(outputs[-1].shape)
+    y = matrixize(y)
+
+    error = outputs[-1] - y
+    gradient = (_activationDerivative(outputs[-1]))
+    delta = error * gradient
 
     w_delta[-1] = delta * outputs[-2]
     b_delta[-1] = delta
